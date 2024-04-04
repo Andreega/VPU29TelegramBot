@@ -1,46 +1,59 @@
 import os
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
-from dotenv import load_dotenv
 import logging
+from dotenv import load_dotenv
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG
-
+    level=logging.INFO
 )
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [KeyboardButton('Hello'), KeyboardButton('World')],
-        [KeyboardButton('Goodbye')]
+        [KeyboardButton('Share my location', request_location=True)],
     ]
-    reply_markup = ReplyKeyboardMarkup(keyboard)
-    await update.message.reply_text(f'Start {update.effective_user.first_name}', reply_markup=reply_markup)
-async def hello(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(f'Здоров {update.effective_user.first_name}')
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    massage = update.message.text.lower()
-    if 'привіт' in massage:
-        reply_text = f"Доброго дня {update.effective_user.first_name}"
-    elif massage == 'допобачення':
-        last_name = update.effective_user.last_name
-        if last_name is None:
-            reply_text = f"Допобачення {update.effective_user.first_name}"
-        else:
-            reply_text = f"Допобачення {update.effective_user.first_name} {last_name}"
-    else:
-        reply_text = 'Я тебе не зрозумів.'
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text='I\'m a bot, please talk to me!',
+        reply_markup=reply_markup
+    )
+
+async def hello(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f'Hello {update.effective_user.first_name}')
+
+async def location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lat = update.message.location.latitude
+    lon = update.message.location.longitude
+    await update.message.reply_text(f'lat = {lat}, lon = {lon}')
+
+
+    async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):    user_id = update.message.contact.user_id
+
+    first_name = update.message.contact.first_name
+    last_name = update.message.contact.last_name
+    await update.message.reply_text(
+        f"""        user_id = {user_id}
+            first_name = {first_name}        last_name = {last_name}
+            """)
+
+
+if __name__ == '__main__':
+    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    start_handler = CommandHandler('start', start)
+    application.add_handler(start_handler)
+
+    hello_handler = CommandHandler('hello', hello)
+    application.add_handler(hello_handler)
+
+    location_handler = MessageHandler(filters.LOCATION, location)
+    application.add_handler(location_handler)
 
 
 
-    await update.message.reply_text(reply_text)
-app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-app.add_handler(CommandHandler("Hello", hello))
-app.add_handler(CommandHandler("Start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-
-
-app.run_polling()
+    application.run_polling()
